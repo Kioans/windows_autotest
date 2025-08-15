@@ -93,20 +93,21 @@ class UiAgent:
         try:
             ctrl = self.wait_for(locator, timeout=timeout)
             logger.info(f"Контрол найден по локатору {locator}")
-
             ctrl.click_input()
-
         except (TimeoutError, RuntimeError):
             logger.warning(f"Локатор {locator} (timeout={timeout}) не найден.")
+            if fallback_img is not None:
+                logger.info(
+                    f"Локатор {locator} ищем по картинке {fallback_img}"
+                )
+            pt = pyautogui.locateCenterOnScreen(str(fallback_img), confidence=0.9)
 
-        logger.info(f"Локатор {locator} ищем по картинке {fallback_img}")
+            if not pt:
+                raise LookupError(
+                    f"Элемент не найден ни по локатору {locator} ни по картинке {fallback_img}."
+                )
+            pyautogui.click(pt)
 
-        pt = pyautogui.locateCenterOnScreen(str(fallback_img), confidence=0.9)
-
-        if not pt:
-            raise LookupError(
-                f"Элемент не найден ни по локатору {locator} ни по картинке {fallback_img}."
-            )
 
     # type_keys — вводим текст, при желании жмём Enter.
     # Активное окно уже известно, поэтому напрямую посылаем последовательность клавиш. Аргумент enter=True добавляет {ENTER} в конец строки — удобно для поиска или отправки сообщений.
@@ -152,7 +153,7 @@ class UiAgent:
     ):
         """Ищем главное окно, пробуя несколько ControlType."""
 
-        for ctype in self._FALLBACK_CTYPES:
+        for ctype in self._CTYPES:
             try:
                 w = (
                     Desktop(backend=self.backend)
