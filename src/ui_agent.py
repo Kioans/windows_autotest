@@ -81,7 +81,7 @@ class UiAgent:
         try:
             return self.main.child_window(**locator).wait(state, timeout=timeout)
         except TimeoutError:
-            logger.warning("Locator not found: %s", locator)
+            logger.warning("Локатор %s не найден", locator)
 
     # click — кликаем по элементу, а при неудаче — по картинке. Используем комбинированный подход.
     # Сначала пытаемся найти контрол через wait_for и нажать на него. Если не удалось найти элемент по локатору, используем pyautogui для сравнения скриншота элемента fallback_img с экраном. Затем кликаем по координатам найденного элемента.
