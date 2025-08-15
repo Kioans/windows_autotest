@@ -42,8 +42,8 @@ def test_send_message(whatsapp):
     message = f"Hello from pywinauto {datetime.now().strftime('%Y.%m.%d.%H-%M-%S')}"
     whatsapp.open_chat(contact)
     whatsapp.send_message(message)
-    txt = re.escape(message).replace(r"\\ ", r"[ \\u00A0]")
-    pattern = rf"^{txt}(?:\\r\\n)?\\u200e?$"
+    txt = re.escape(message).replace(r"\ ", r"[ \u00A0]")
+    pattern = rf"^{txt}[\r\n\u200e]*$"
     whatsapp.ui.wait_for(
         {**SENT_MSG_RE.params, "title_re": pattern},
         timeout=10,

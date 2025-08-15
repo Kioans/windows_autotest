@@ -20,9 +20,7 @@ class Locator:
 
 # Часто используемые локаторы элементов вынесены в константы.
 SEARCH_BOX = Locator({"auto_id": "SearchQueryTextBox", "control_type": "Edit"})
-
 CHAT_TEXT_BOX = Locator({"auto_id": "InputBarTextBox", "control_type": "Edit"})
-
 SENT_MSG_RE = Locator(
     {
         "auto_id": "TextBlock",
@@ -31,7 +29,7 @@ SENT_MSG_RE = Locator(
     }
 )
 
-WHATSAPP_SENT_MSG_IMG_FOLDER = "whatsapp/attach_btn"
+WHATSAPP_SENT_MSG_IMG_FOLDER = "whatsapp/send_msg_input"
 
 
 # __init__ — сохраняем ссылку на общий драйвер.
@@ -46,9 +44,7 @@ class WhatsAppAgent:
     # — удобно для анализа локаторов. Метод позволяет отлаживать код поиска элементов по локаторам.
     def dump_controls(self) -> None:
         timestamp = datetime.now().strftime("%Y.%m.%d.%H-%M-%S")
-
         file_name = f"whatsapp_controls_{timestamp}.txt"
-
         buf = StringIO()
 
         with redirect_stdout(buf):
@@ -57,22 +53,12 @@ class WhatsAppAgent:
         with open(file_name, "w", encoding="utf-8") as f:
             f.write(buf.getvalue())
 
-    # open_chat — открываем нужный чат через поиск.
-    # Нажимаем Ctrl + F, ждём, пока фокус перейдёт в строку поиска.
-    # Вводим имя контакта и жмём Enter — WhatsApp открывает диалог.
     def open_chat(self, name: str) -> None:
         self.ui.type_keys("^f")
-
         self.ui.wait_for_keyboard_focus(SEARCH_BOX.params)
-
         self.ui.type_keys(name, enter=True)
 
-    # send_message — печатаем и отправляем сообщение.
-    # Кликаем в поле ввода (если элемент не может быть найден по локатору, используем заранее подготовленную картинку).
-    # Дожидаемся реального фокуса клавиатуры. Печатаем текст и отправляем Enter.
     def send_message(self, text: str) -> None:
         self.ui.click(CHAT_TEXT_BOX.params, fallback_img_folder=WHATSAPP_SENT_MSG_IMG_FOLDER)
-
         self.ui.wait_for_keyboard_focus(CHAT_TEXT_BOX.params)
-
         self.ui.type_keys(text, enter=True)

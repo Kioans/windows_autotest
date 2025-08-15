@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import os
 from time import monotonic, sleep
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from PIL import Image
 import pyautogui
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class UiAgent:
-    _CTYPES = ("Windows", "Pane", None)
+    _FALLBACK_CTYPES: Sequence[str | None] = ("Window", "Pane", None)
 
     def __init__(self, backend: str = "uia") -> None:
         self.backend = backend
@@ -78,7 +78,10 @@ class UiAgent:
     ):
         if not self.main:
             raise RuntimeError("Приложение не проинициализировано.")
-        return self.main.child_window(**locator).wait(state, timeout=timeout)
+        try:
+            return self.main.child_window(**locator).wait(state, timeout=timeout)
+        except TimeoutError:
+            logger.warning("Locator not found: %s", locator)
 
     # click — кликаем по элементу, а при неудаче — по картинке. Используем комбинированный подход.
     # Сначала пытаемся найти контрол через wait_for и нажать на него. Если не удалось найти элемент по локатору, используем pyautogui для сравнения скриншота элемента fallback_img с экраном. Затем кликаем по координатам найденного элемента.
@@ -88,7 +91,7 @@ class UiAgent:
         locator: Mapping[str, Any],
         *,
         timeout: int = 5,
-        fallback_img: Path | None = None,
+        fallback_img_folder: str | None = None,
     ) -> None:
         try:
             ctrl = self.wait_for(locator, timeout=timeout)
@@ -96,15 +99,15 @@ class UiAgent:
             ctrl.click_input()
         except (TimeoutError, RuntimeError):
             logger.warning(f"Локатор {locator} (timeout={timeout}) не найден.")
-            if fallback_img is not None:
+            if fallback_img_folder is not None:
                 logger.info(
-                    f"Локатор {locator} ищем по картинке {fallback_img}"
+                    f"Локатор {locator} ищем по картинке {fallback_img_folder}"
                 )
-            pt = pyautogui.locateCenterOnScreen(str(fallback_img), confidence=0.9)
+            pt = self.locate_on_screen
 
             if not pt:
                 raise LookupError(
-                    f"Элемент не найден ни по локатору {locator} ни по картинке {fallback_img}."
+                    f"Элемент не найден ни по локатору {locator} ни по картинке {fallback_img_folder}."
                 )
             pyautogui.click(pt)
 
@@ -153,7 +156,7 @@ class UiAgent:
     ):
         """Ищем главное окно, пробуя несколько ControlType."""
 
-        for ctype in self._CTYPES:
+        for ctype in self._FALLBACK_CTYPES:
             try:
                 w = (
                     Desktop(backend=self.backend)
@@ -163,7 +166,6 @@ class UiAgent:
                     )
                     .wait("visible ready", timeout=timeout)
                 )
-
                 return w
 
             except pywinauto.timings.TimeoutError:
@@ -186,13 +188,10 @@ class UiAgent:
         """Ждём, пока элемент получит клавиатурный фокус (HasKeyboardFocus=True)."""
 
         ctrl = self.wait_for(locator, state="exists", timeout=timeout)
-
         start = monotonic()
-
         while monotonic() - start < timeout:
             if ctrl.has_keyboard_focus():
                 return ctrl  # успех
-
             sleep(poll)
 
         raise TimeoutError(f"Элемент {locator} не получил фокус за {timeout} с")
@@ -204,6 +203,7 @@ class UiAgent:
             self.main.close()
 
     # Полезный лайфхак — это делать скриншот всего экрана (например с помощью pyautogui.screenshot()), если не удалось найти элемент по имеющимся картинкам, и из этого скриншота в ручную вырезать нужную область с элементом.
+    @staticmethod
     def load_images(folder):
         """
         Загружает все изображения PNG из папки внутри ./ui_elements.
@@ -226,37 +226,28 @@ class UiAgent:
 
     def locate_on_screen(self, folder, confidence=0.8, min_search_time=10):
         """
-
         Пытается найти одно из указанных изображений в папке на экране, пока оно не будет найдено.
 
         :param str folder: Путь к папке содержит элементы изображений с расширением ".png".
-
-        :param float trust: Уровень уверенности — это число с плавающей точкой от 0 до 1
-
-        для pyautogui.locateOnScreen.
-
+        :param float trust: Уровень уверенности — это число с плавающей точкой от 0 до 1 для pyautogui.locateOnScreen.
         :param int min_search_time: Количество времени в секундах для повторения поиска.
 
         :returns: Объект Box(NamedTuple) с координатами элемента на экране или None.
-
         """
 
         images = self.load_images(folder)
-
         for image, filename in images:
             try:
                 location = pyautogui.locateOnScreen(
                     image, confidence=confidence, minSearchTime=min_search_time
                 )
-
                 if location is not None:
                     # После поиска элемента мы получаем координаты его верхнего левого угла, ширину и высоту. Чтобы нажать на нужную часть кнопки, центрируемся по её середине.
-
                     return pyautogui.center(
                         (location.left, location.top, location.width, location.height)
                     )
 
             except pyautogui.ImageNotFoundException:
-                logger.inf(f"Изображение не найдено, имя файла: {filename}")
+                logger.info(f"Изображение не найдено, имя файла: {filename}")
 
         return None
