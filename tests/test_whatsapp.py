@@ -7,6 +7,7 @@ import pytest
 
 from src.ui_agent import UiAgent
 from src.whatsapp_agent import SENT_MSG_RE, WhatsAppAgent
+from config import CONTACT_PHONE
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def whatsapp():
 
 
 def test_send_message(whatsapp):
-    contact = "{+}780000000"
+    contact = CONTACT_PHONE
     message = f"Hello from pywinauto {datetime.now().strftime('%Y.%m.%d.%H-%M-%S')}"
     whatsapp.open_chat(contact)
     whatsapp.send_message(message)
