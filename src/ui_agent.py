@@ -1,11 +1,11 @@
 import subprocess
 from pathlib import Path
+import logging
+import os
 from time import monotonic, sleep
 from typing import Any, Mapping
-from PIL import Image
 
-import os
-import logging
+from PIL import Image
 import pyautogui
 import pywinauto
 import pywinauto.timings
@@ -16,11 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class UiAgent:
-
     _CTYPES = ("Windows", "Pane", None)
 
     def __init__(self, backend: str = "uia") -> None:
-
         self.backend = backend
         self.app: Application | None = None
         self.main: pywinauto.base_wrapper.BaseWrapper | None = None
@@ -30,7 +28,6 @@ class UiAgent:
     # UWP-приложения требуют особого запуска через explorer.exe или через powershell Start-Process (Application.start() для UWP не работает). Метод connect() будет обрабатывать случаи, когда приложение запускается через библиотеку pywinauto -  Application.start() и случаи, когда приложение запускается через explorer.exe
     # Application.start() в pywinauto запускает процесс по переданной командной строке или по пути до .exe файла и привязывает объект Application к только что созданному процессу, сохраняя его PID и дескриптор. Дополнительный Application().connect() не нужен. Объект уже подключен к процессу, поэтому можно сразу искать окна, элементы и вызывать методы.
     def connect(self, cmd_line: str, *, title_re: str, timeout: int = 15) -> None:
-
         # 1. Пытаемся присоединиться к уже запущенному экземпляру
 
         dlg = self._find_main_window(title_re, raise_error=False)
@@ -100,7 +97,6 @@ class UiAgent:
             ctrl.click_input()
 
         except (TimeoutError, RuntimeError):
-
             logger.warning(f"Локатор {locator} (timeout={timeout}) не найден.")
 
         logger.info(f"Локатор {locator} ищем по картинке {fallback_img}")
@@ -108,7 +104,6 @@ class UiAgent:
         pt = pyautogui.locateCenterOnScreen(str(fallback_img), confidence=0.9)
 
         if not pt:
-
             raise LookupError(
                 f"Элемент не найден ни по локатору {locator} ни по картинке {fallback_img}."
             )
@@ -116,7 +111,6 @@ class UiAgent:
     # type_keys — вводим текст, при желании жмём Enter.
     # Активное окно уже известно, поэтому напрямую посылаем последовательность клавиш. Аргумент enter=True добавляет {ENTER} в конец строки — удобно для поиска или отправки сообщений.
     def type_keys(self, text: str, *, enter: bool = False) -> None:
-
         if not self.main:
             raise RuntimeError("Приложение не проинициализировано.")
 
@@ -127,13 +121,10 @@ class UiAgent:
     # get_focus_on_window — вытаскиваем окно на передний план.
     # Нужно, когда приложение оказалось «под другими». Ищем окно по title_re (или берём main) и вызываем set_focus().
     def get_focus_on_window(self, title_re: str | None = None, timeout: int = 5) -> None:
-
         target = None
 
         if title_re:
-
             try:
-
                 target = (
                     Desktop(backend=self.backend)
                     .window(title_re=title_re)
@@ -141,15 +132,12 @@ class UiAgent:
                 )
 
             except TimeoutError as e:
-
                 raise TimeoutError(f"Окно '{title_re}' не найдено за {timeout}с") from e
 
         else:
-
             target = self.main
 
         if not target:
-
             raise RuntimeError("Нет доступного окна для фокусировки.")
 
         target.set_focus()
@@ -165,9 +153,7 @@ class UiAgent:
         """Ищем главное окно, пробуя несколько ControlType."""
 
         for ctype in self._FALLBACK_CTYPES:
-
             try:
-
                 w = (
                     Desktop(backend=self.backend)
                     .window(
@@ -180,11 +166,9 @@ class UiAgent:
                 return w
 
             except pywinauto.timings.TimeoutError:
-
                 continue
 
         if raise_error:
-
             raise TimeoutError(f"Window '{title_re}' not found")
 
         return None
@@ -205,9 +189,7 @@ class UiAgent:
         start = monotonic()
 
         while monotonic() - start < timeout:
-
             if ctrl.has_keyboard_focus():
-
                 return ctrl  # успех
 
             sleep(poll)
@@ -217,9 +199,7 @@ class UiAgent:
     # close — закрываем приложение.
     # Если главное окно (main) известно, вызываем у него close(). Полезно в конце теста, чтобы не оставлять «висящие» процессы.
     def close(self) -> None:
-
         if self.main:
-
             self.main.close()
 
     # Полезный лайфхак — это делать скриншот всего экрана (например с помощью pyautogui.screenshot()), если не удалось найти элемент по имеющимся картинкам, и из этого скриншота в ручную вырезать нужную область с элементом.
@@ -263,15 +243,12 @@ class UiAgent:
         images = self.load_images(folder)
 
         for image, filename in images:
-
             try:
-
                 location = pyautogui.locateOnScreen(
                     image, confidence=confidence, minSearchTime=min_search_time
                 )
 
                 if location is not None:
-
                     # После поиска элемента мы получаем координаты его верхнего левого угла, ширину и высоту. Чтобы нажать на нужную часть кнопки, центрируемся по её середине.
 
                     return pyautogui.center(
@@ -279,7 +256,6 @@ class UiAgent:
                     )
 
             except pyautogui.ImageNotFoundException:
-
                 logger.inf(f"Изображение не найдено, имя файла: {filename}")
 
         return None
